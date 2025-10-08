@@ -5,15 +5,54 @@ import uuid
 from docx import Document
 import requests
 import smtplib
+import qrcode
 from email.message import EmailMessage
+import sqlite3
+import json
+import joblib
+from huggingface_hub import InferenceClient
+import traceback
+
+HF_API_KEY = "huggingface_API"
+hf_client = InferenceClient(token=HF_API_KEY)
+
+def llm_alert_summary(alert_data):
+    safe_alert_data = alert_data.copy()
+    safe_alert_data["password"] = "***REDACTED***"
+
+    messages = [
+        {"role": "system", "content": "You are a cybersecurity expert analyzing suspicious login alerts."},
+        {"role": "user", "content": (
+            "Here are the login alert details:\n"
+            f"{json.dumps(safe_alert_data, indent=2)}\n\n"
+            "Summarize whether this is an intrusion attempt or benign."
+        )}
+    ]
+
+    try:
+        response = hf_client.chat_completion(
+            model="mistralai/Mistral-7B-Instruct-v0.2",
+            messages=messages,
+            max_tokens=150,
+            temperature=0.7,
+        )
+
+        return response.choices[0].message["content"].strip()
+    except Exception as e:
+        print(f"Error calling LLM: {e}")
+        return "Summary unavailable"
+
+# Load your trained pipeline (preprocessing + model)
+PIPELINE_MODEL_PATH = "login_pipeline_model.pkl"
+pipeline = joblib.load(PIPELINE_MODEL_PATH)
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
 LOG_FILE = "alerts.log"
 
-EMAIL_ADDRESS = "pundirved09@gmail.com"
-EMAIL_PASSWORD = "pnmaayexiejdikhr"
-TO_EMAIL = "pundirved09@gmail.com"
+EMAIL_ADDRESS = ""
+EMAIL_PASSWORD = ""
+TO_EMAIL = ""
 
 if not os.path.exists(LOG_FILE):
     open(LOG_FILE, 'w').close()
@@ -85,14 +124,60 @@ def parse_alerts():
                 print(f"Parse error: {e}")
                 continue
     return alerts
+SPLUNK_HEC_URL = "http://localhost:8088/services/collector/event"
+SPLUNK_TOKEN = "splunk_api"
+
+def send_to_splunk(token, ip, location, user_agent, message, timestamp, username=None, password=None, success=None, attempts=None, llm_summary=None):
+    payload = {
+        "event": {
+            "token": token,
+            "ip": ip,
+            "location": location,
+            "user_agent": user_agent,
+            "message": message,
+            "timestamp": timestamp,
+            "username": username,
+            "password": password,
+            "login_success": success,
+            "login_attempts": attempts,
+            "llm_summary": llm_summary
+        },
+        "sourcetype": "_json"
+    }
+
+    headers = {
+        "Authorization": f"Splunk {SPLUNK_TOKEN}"
+    }
+
+    try:
+        res = requests.post(SPLUNK_HEC_URL, headers=headers, data=json.dumps(payload), verify=False)
+        if res.status_code != 200:
+            print("Splunk HEC Error:", res.text)
+    except Exception as e:
+        print("Error sending to Splunk:", e)
+
+def is_sql_injection(username, password, user_agent, timestamp_iso):
+    import pandas as pd
+    ts = pd.to_datetime(timestamp_iso)
+    df = pd.DataFrame([{
+        'combined_text': f"{username} {password}",
+        'user_agent': user_agent,
+        'hour': ts.hour,
+        'dayofweek': ts.dayofweek
+    }])
+    prediction = pipeline.predict(df)[0]  # 0=False (normal), 1=True (SQLi)
+    return bool(prediction)
+
 @app.route('/alerts-count')
 def alerts_count():
     count = 0
     try:
         with open("alerts.log", "r") as file:
-            count = sum(1 for _ in file)
-    except:
-        pass
+            content = file.read().strip()
+            if content:
+                count = len(content.split("\n\n"))
+    except Exception as e:
+        print(f"Error reading alerts.log: {e}")
     return {"count": count}
 
 @app.route("/")
@@ -114,41 +199,188 @@ def generate_doc_token():
     token = str(uuid.uuid4())
     url = request.host_url + "trigger/" + token
 
+    # Create Word Document
     document = Document()
     document.add_heading('Company Confidential', 0)
-    document.add_paragraph('This document is sensitive.')
-    document.add_paragraph(f'Hidden link: {url}')
+    document.add_paragraph('This document is sensitive and should only be accessed by the legitimate user.')
 
+    # Generate QR Code
+    qr = qrcode.make(url)
+    os.makedirs("qrcodes", exist_ok=True)
+    qr_path = f"qrcodes/{token}.png"
+    qr.save(qr_path)
+
+    # Insert QR Code into Word Document
+    document.add_paragraph("Scan this QR code to access:")
+    document.add_picture(qr_path)
+
+    # Save DOCX
     os.makedirs("tokens", exist_ok=True)
     file_path = f"tokens/{token}.docx"
     document.save(file_path)
 
     return send_file(file_path, as_attachment=True)
 
-@app.route("/trigger/<token>")
+    return send_file(file_path, as_attachment=True)
+
+@app.route("/trigger/<token>", methods=["GET", "POST"])
 def trigger(token):
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     user_agent = request.headers.get("User-Agent", "Unknown")
     location_info = get_location(ip)
     timestamp = datetime.datetime.now().isoformat()
+    lat, lon = location_info['loc'].split(",")
 
-    log_line = (
-        f"[{timestamp}] ALERT: Token {token}\n"
-        f"IP: {ip}\n"
-        f"Location: {location_info['text']} (Coordinates: {location_info['loc']})\n"
-        f"User-Agent: {user_agent}\n\n"
-    )
+    conn = sqlite3.connect("alerts.db")
+    c = conn.cursor()
 
-    with open(LOG_FILE, "a") as f:
-        f.write(log_line)
+    # Create vulnerable login table if not exists
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS login_honeypot (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT,
+            ip TEXT,
+            location TEXT,
+            latitude TEXT,
+            longitude TEXT,
+            user_agent TEXT,
+            username TEXT,
+            password TEXT,
+            success INTEGER,
+            timestamp TEXT
+        )
+    ''')
 
-    send_email_alert("🚨 Canary Token Triggered", log_line)
-    return "📌 Token triggered and email sent."
+    # Count attempts from this IP/token
+    c.execute("SELECT COUNT(*) FROM login_honeypot WHERE ip = ? AND token = ?", (ip, token))
+    attempt_count = c.fetchone()[0]
+
+    success = False
+    username = password = ""
+
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        # INTENTIONAL VULNERABLE QUERY
+        query = "SELECT * FROM users WHERE username = ? AND password = ?"
+        try:
+            c.execute('CREATE TABLE IF NOT EXISTS users (username TEXT, password TEXT)')
+            c.execute("INSERT INTO users (username, password) VALUES ('admin', 'admin123')")  # dummy user
+            conn.commit()
+
+            c.execute(query, (username, password))
+            result = c.fetchone()
+            if result:
+                success = True
+        except Exception as e:
+            print("SQL Error:", e)
+
+        # Predict SQL injection using ML model
+        sqli_flag = is_sql_injection(username, password, user_agent, timestamp)
+
+        # Log to DB
+        c.execute('''
+            INSERT INTO login_honeypot (token, ip, location, latitude, longitude, user_agent, username, password, success, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (token, ip, location_info["text"], lat, lon, user_agent, username, password, int(success), timestamp))
+        conn.commit()
+
+        # Log to alerts.log
+        log_line = (
+            f"[{timestamp}] Token {token}\n"
+            f"IP: {ip}\n"
+            f"Location: {location_info['text']} (Coordinates: {lat},{lon})\n"
+            f"User-Agent: {user_agent}\n"
+            f"Username: {username} | Password: {password}\n"
+            f"Login Success: {success}\n"
+            f"ML SQLi Detection: {sqli_flag}\n\n"
+        )
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line)
+
+        # Construct alert data for LLM
+        alert_data = {
+            "token": token,
+            "ip": ip,
+            "location": location_info["text"],
+            "username": username,
+            "password": password,
+            "login_success": success,
+            "sqli_flag": sqli_flag,
+            "timestamp": timestamp,
+            "user_agent": user_agent,
+        }
+
+        summary = llm_alert_summary(alert_data)
+        log_line += f"LLM Summary: {summary}\n\n"
+        
+        print("\n===== LLM SUMMARY =====")
+        print(summary)
+        print("=======================\n")
+
+
+        # Send email alert including LLM summary if SQLi detected
+        if sqli_flag:
+            send_email_alert("🚨 SQL Injection Attack Detected", log_line)
+
+        # Include summary in Splunk message along with other details
+        send_to_splunk(
+              token=token,
+              ip=ip,
+              location=location_info["text"],
+              user_agent=user_agent,
+              message=f"{username}:{password} | ML_SQLi:{sqli_flag} | LLM Summary: {summary}",
+              timestamp=timestamp,
+              username=username,
+              password=password,
+              success=success,
+              attempts=attempt_count + 1 if not success else attempt_count,
+              llm_summary=summary  # Add summary field here
+           )
+
+    conn.close()
+    return render_template("login.html", success=success, attempts=(attempt_count + 1 if not success else attempt_count))
+
+"""@app.route("/alerts")
+def view_alerts():
+    alerts = parse_alerts()
+
+    # Load confessions
+    conn = sqlite3.connect("alerts.db")
+    c = conn.cursor()
+    c.execute("SELECT token, ip, location, latitude, longitude, user_agent, message, timestamp FROM login_honeypot ORDER BY id DESC")
+    confessions = c.fetchall()
+    conn.close()
+
+
+
+    return render_template("alerts.html", alerts=alerts[::-1], confessions=confessions)"""
 
 @app.route("/alerts")
 def view_alerts():
     alerts = parse_alerts()
-    return render_template("alerts.html", alerts=alerts[::-1])
+
+    # Load records from login_honeypot
+    conn = sqlite3.connect("alerts.db")
+    c = conn.cursor()
+    c.execute("SELECT token, ip, location, username, password, success, timestamp FROM login_honeypot ORDER BY id DESC")
+    rows = c.fetchall()
+    conn.close()
+
+    records = []
+    for token, ip, location, username, password, success, timestamp in rows:
+        records.append({
+            "token": token,
+            "ip": ip,
+            "location": location,
+            "username": username,
+            "password": password,
+            "success": bool(success),
+            "timestamp": timestamp
+        })
+
+    return render_template("alerts.html", alerts=alerts[::-1], records=records)
 
 @app.route("/clear-alerts")
 def clear_alerts():

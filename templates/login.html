@@ -1,0 +1,239 @@
+k<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome Back</title>
+    <meta name="viewport" content="width=1200">
+    <!-- Google Fonts: Montserrat -->
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:700,400&display=swap" rel="stylesheet">
+    <!-- Font Awesome (for social icons) -->
+    <script src="https://kit.fontawesome.com/9293485b92.js" crossorigin="anonymous"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: url('https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1500&q=80') no-repeat center center fixed;
+            background-size: cover;
+            width: 100vw;
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+            width: 100vw;
+        }
+        .left-pane {
+            flex: 1.2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding-left: 8vw;
+            background: rgba(0,0,0,0.35);
+        }
+        .left-pane h1 {
+            color: #fff;
+            font-size: 3.5em;
+            font-weight: bold;
+            line-height: 1.05;
+            margin-bottom: 22px;
+        }
+        .left-pane p {
+            color: #eaeaea;
+            max-width: 360px;
+            font-size: 1.16em;
+            margin-bottom: 34px;
+            margin-top: 0;
+        }
+        .social-icons {
+            display: flex;
+            gap: 24px;
+            margin-top: 8px;
+        }
+        .social-icons a {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.18);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 22px;
+            transition: background 0.2s;
+        }
+        .social-icons a:hover { background: #ff6820; }
+
+        .right-pane {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-left: 4vw;
+        }
+        .login-card {
+            width: 480px;
+            max-width: 95vw;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.11);
+            padding: 48px 50px 30px 50px;
+            display: flex;
+            flex-direction: column;
+        }
+        .login-card h2 {
+            font-weight: bold;
+            font-size: 2.25em;
+            margin-bottom: 29px;
+        }
+        form input[type="text"],
+        form input[type="password"] {
+            width: 100%;
+            font-size: 1.06em;
+            padding: 17px 14px;
+            margin: 13px 0;
+            background: #f7f7fa;
+            border: 1.5px solid #e2e2ec;
+            border-radius: 8px;
+            transition: border .19s;
+        }
+        form input[type="text"]:focus,
+        form input[type="password"]:focus {
+            border-color: #ff6820;
+            outline: none;
+        }
+        .remember-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .remember-row input[type="checkbox"] {
+            accent-color: #ff6820;
+            margin-right: 8px;
+        }
+        .login-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.3em;
+            font-family: inherit;
+            background: #ff6820;
+            color: white;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border: none;
+            border-radius: 6px;
+            margin: 12px 0 0 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .login-btn:hover {
+            background: #d35200;
+        }
+        .login-card a {
+            color: #635cff;
+            text-decoration: none;
+            font-size: 1.01em;
+            transition: color 0.18s;
+            font-family: inherit;
+        }
+        .login-card a:hover { text-decoration: underline; color: #443fff; }
+        .message {
+            text-align: left;
+            color: #14a766;
+            margin: 10px 0 2px 0;
+            font-size: 1.02em;
+        }
+        .error {
+            text-align: left;
+            color: #e03030;
+            margin: 10px 0 2px 0;
+            font-size: 1.02em;
+        }
+        .login-card .extra-info {
+            margin-top: 30px;
+            color: #777;
+            font-size: 0.99em;
+        }
+        .login-card .extra-info a { color: #635cff; text-decoration: underline; }
+
+        @media only screen and (max-width: 1000px) {
+            .container {
+                flex-direction: column;
+            }
+            .left-pane, .right-pane {
+                padding: 50px 5vw;
+                justify-content: flex-start;
+            }
+            .login-card { margin: 30px 0 0 0; }
+        }
+        @media only screen and (max-width: 650px) {
+            .container { flex-direction: column; }
+            .left-pane, .right-pane { padding: 40px 4vw; }
+            .left-pane h1 { font-size: 2.3em; }
+            .login-card { padding: 36px 2vw 24px 2vw; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="left-pane">
+        <h1>Welcome<br>Back</h1>
+        <p>It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using</p>
+<div class="social-icons">
+    <a href="#" title="Facebook">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" alt="Facebook" width="36" height="36">
+    </a>
+    <a href="#" title="Twitter">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6f/Logo_of_Twitter.svg" alt="Twitter" width="36" height="36">
+    </a>
+    <a href="#" title="Instagram">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram" width="36" height="36">
+    </a>
+    <a href="#" title="YouTube">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="YouTube" width="36" height="36">
+    </a>
+</div>
+
+    </div>
+    <div class="right-pane">
+        <div class="login-card">
+            <h2>Sign in</h2>
+            <form method="POST">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <div class="remember-row">
+                    <input type="checkbox" id="remember" name="remember">
+                    <label for="remember">Remember Me</label>
+                </div>
+                <div class="login-actions">
+                    <!-- empty to keep sizes matching; can be used for extra links -->
+                    <span></span>
+                    <a href="#" style="float: right;">Lost your password?</a>
+                </div>
+                <button type="submit" class="login-btn">Sign in now</button>
+            </form>
+
+            {% if success %}
+                <div class="message">🎉 Congratulations! You have logged in successfully.</div>
+            {% elif attempts is not none %}
+                <div class="error">Login failed. Attempts: {{ attempts }}</div>
+            {% endif %}
+
+            <div class="extra-info" style="margin-top:25px;">
+                By clicking on "Sign in now" you agree to our
+                <a href="#">Terms of Service</a> | <a href="#">Privacy Policy</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

