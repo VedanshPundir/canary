@@ -15,9 +15,9 @@ from email.message import EmailMessage
 app = Flask(__name__)
 LOG_FILE = "alerts.log"
 
-EMAIL_ADDRESS = "pundirved09@gmail.com"
-EMAIL_PASSWORD = "pnmaayexiejdikhr"
-TO_EMAIL = "pundirved09@gmail.com"
+EMAIL_ADDRESS = ""
+EMAIL_PASSWORD = ""
+TO_EMAIL = ""
 
 # ======================== Flask Utility =========================
 
