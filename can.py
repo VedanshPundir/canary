@@ -13,7 +13,7 @@ import joblib
 from huggingface_hub import InferenceClient
 import traceback
 
-HF_API_KEY = "huggingface_API"
+HF_API_KEY = ""
 hf_client = InferenceClient(token=HF_API_KEY)
 
 def llm_alert_summary(alert_data):
@@ -126,7 +126,6 @@ def parse_alerts():
     return alerts
 SPLUNK_HEC_URL = "http://localhost:8088/services/collector/event"
 SPLUNK_TOKEN = "splunk_api"
-
 def send_to_splunk(token, ip, location, user_agent, message, timestamp, username=None, password=None, success=None, attempts=None, llm_summary=None):
     payload = {
         "event": {
